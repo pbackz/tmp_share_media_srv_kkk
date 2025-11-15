@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Proxy to Cloudflare Worker (no edge runtime needed, avoids async_hooks issue)
+// Proxy to Cloudflare Worker
 const WORKER_URL = process.env.WORKER_URL || "https://flash-share-upload-worker.pierre-baconnier.workers.dev";
+
+// Required by @cloudflare/next-on-pages
+export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {
