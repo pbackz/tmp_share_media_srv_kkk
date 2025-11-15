@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Partage Temporaire de Médias",
-  description: "Partagez vos fichiers avec des liens temporaires sécurisés",
+  title: "Flash Share - Partage de fichiers temporaire",
+  description: "Partage simplement tes fichiers avec des liens qui expirent automatiquement",
 };
 
 export default function RootLayout({
