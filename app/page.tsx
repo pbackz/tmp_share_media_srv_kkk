@@ -89,7 +89,7 @@ export default function Home() {
       clearInterval(progressInterval);
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { id: string; expiresAt: number; storage: string };
         const fullUrl = `${window.location.origin}/share/${data.id}`;
         setShareLink(fullUrl);
         setUploadProgress(100);

@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 export interface ShareData {
   id: string;
   filename: string;
@@ -6,13 +8,6 @@ export interface ShareData {
   size: number;
   expiresAt: number;
   createdAt: number;
-}
-
-// Cloudflare KV namespace type
-interface KVNamespace {
-  get(key: string): Promise<string | null>;
-  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
-  delete(key: string): Promise<void>;
 }
 
 // Generate a secure random ID using Web Crypto API
