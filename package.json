@@ -12,7 +12,6 @@
     "pages:dev": "npx @cloudflare/next-on-pages --dev"
   },
   "dependencies": {
-    "nanoid": "^5.0.0",
     "next": "^15.0.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",

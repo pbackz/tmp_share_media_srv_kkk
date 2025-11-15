@@ -1,5 +1,3 @@
-import { nanoid } from "nanoid";
-
 export interface ShareData {
   id: string;
   filename: string;
@@ -8,6 +6,16 @@ export interface ShareData {
   size: number;
   expiresAt: number;
   createdAt: number;
+}
+
+// Generate a secure random ID using Web Crypto API
+function generateId(length: number = 10): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const randomValues = new Uint8Array(length);
+  crypto.getRandomValues(randomValues);
+  return Array.from(randomValues)
+    .map(v => chars[v % chars.length])
+    .join('');
 }
 
 // In-memory metadata store (for demo - in production use a database)
@@ -172,7 +180,7 @@ export async function saveFileToR2(
 
   await cleanExpiredFiles();
 
-  const id = nanoid(10);
+  const id = generateId(10);
   const ext = originalName.substring(originalName.lastIndexOf("."));
   const filename = `${id}${ext}`;
 
