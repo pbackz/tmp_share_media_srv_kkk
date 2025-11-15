@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 interface FileInfo {
   originalName: string;
@@ -204,13 +205,36 @@ export default function SharePage() {
 
         {renderMedia()}
 
-        <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-          <a
-            href="/"
-            className="text-indigo-600 hover:text-indigo-800 font-medium"
-          >
-            Partager vos propres fichiers
-          </a>
+        {/* QR Code Section for sharing */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="text-center md:text-left flex-1">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Partager ce fichier
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Scannez ce QR code pour partager facilement ce lien
+              </p>
+              <a
+                href="/"
+                className="text-indigo-600 hover:text-indigo-800 font-medium text-sm"
+              >
+                Partager vos propres fichiers →
+              </a>
+            </div>
+
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl shadow-md">
+              <QRCodeSVG
+                value={typeof window !== 'undefined' ? window.location.href : ''}
+                size={160}
+                level="H"
+                includeMargin={true}
+              />
+              <p className="text-xs text-gray-500 text-center mt-2">
+                QR Code du lien
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </main>

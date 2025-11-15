@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -132,29 +133,52 @@ export default function Home() {
           {/* Share Link Display */}
           {shareLink && (
             <div className="mt-6 p-6 bg-green-50 rounded-lg border-2 border-green-200">
-              <h3 className="font-semibold text-green-800 mb-2">
+              <h3 className="font-semibold text-green-800 mb-4">
                 Lien de partage généré!
               </h3>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={shareLink}
-                  readOnly
-                  className="flex-1 px-4 py-2 bg-white border border-green-300 rounded-lg text-sm"
-                />
-                <button
-                  onClick={copyToClipboard}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  Copier
-                </button>
+
+              {/* QR Code Section */}
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+                {/* QR Code */}
+                <div className="bg-white p-4 rounded-lg shadow-md">
+                  <QRCodeSVG
+                    value={shareLink}
+                    size={180}
+                    level="H"
+                    includeMargin={true}
+                  />
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Scannez pour partager
+                  </p>
+                </div>
+
+                {/* Link and Info */}
+                <div className="flex-1 w-full">
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={shareLink}
+                      readOnly
+                      className="flex-1 px-4 py-2 bg-white border border-green-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={copyToClipboard}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap"
+                    >
+                      Copier
+                    </button>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    Ce lien expirera dans {expiresIn === "1" ? "1 heure" :
+                      expiresIn === "6" ? "6 heures" :
+                      expiresIn === "24" ? "24 heures" :
+                      expiresIn === "72" ? "3 jours" : "1 semaine"}
+                  </p>
+                  <p className="text-xs text-green-600 mt-2">
+                    💡 Utilisez le QR code pour partager facilement sur mobile
+                  </p>
+                </div>
               </div>
-              <p className="text-sm text-green-700 mt-2">
-                Ce lien expirera dans {expiresIn === "1" ? "1 heure" :
-                  expiresIn === "6" ? "6 heures" :
-                  expiresIn === "24" ? "24 heures" :
-                  expiresIn === "72" ? "3 jours" : "1 semaine"}
-              </p>
             </div>
           )}
         </div>
