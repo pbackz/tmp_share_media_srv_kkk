@@ -11,7 +11,10 @@ export default function Home() {
   const [showHandbrakeHelp, setShowHandbrakeHelp] = useState(false);
   const [handbrakeMessage, setHandbrakeMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const uploadStartTimeRef = useRef<number>(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -56,9 +59,25 @@ export default function Home() {
 
     setUploading(true);
     setUploadProgress(0);
+    setUploadSpeed(0);
+    setUploadedBytes(0);
+    uploadStartTimeRef.current = Date.now();
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("expiresIn", expiresIn);
+
+    // Simulate progress tracking (real progress tracking requires streaming API)
+    const progressInterval = setInterval(() => {
+      const elapsed = (Date.now() - uploadStartTimeRef.current) / 1000; // seconds
+      const estimatedProgress = Math.min(95, (elapsed / (file.size / (1024 * 1024))) * 100);
+      setUploadProgress(estimatedProgress);
+
+      const bytesUploaded = (estimatedProgress / 100) * file.size;
+      setUploadedBytes(bytesUploaded);
+      const speed = bytesUploaded / elapsed; // bytes per second
+      setUploadSpeed(speed);
+    }, 500);
 
     try {
       const response = await fetch("/api/upload", {
@@ -66,6 +85,8 @@ export default function Home() {
         body: formData,
         signal: abortController.signal,
       });
+
+      clearInterval(progressInterval);
 
       if (response.ok) {
         const data = await response.json();
@@ -76,6 +97,7 @@ export default function Home() {
         alert("Erreur lors de l'upload");
       }
     } catch (error: any) {
+      clearInterval(progressInterval);
       if (error.name === 'AbortError') {
         console.log("Upload annulé par l'utilisateur");
         alert("Upload annulé");
@@ -84,8 +106,11 @@ export default function Home() {
         alert("Erreur lors de l'upload");
       }
     } finally {
+      clearInterval(progressInterval);
       setUploading(false);
       setUploadProgress(0);
+      setUploadSpeed(0);
+      setUploadedBytes(0);
       abortControllerRef.current = null;
     }
   };
@@ -227,11 +252,35 @@ export default function Home() {
           ) : (
             <div className="space-y-3">
               {/* Upload Progress */}
-              <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden border border-purple-500/50">
+              <div className="w-full bg-black/50 rounded-full h-4 overflow-hidden border border-purple-500/50">
                 <div
-                  className="bg-gradient-to-r from-purple-600 to-cyan-600 h-full transition-all duration-300 animate-pulse neon-glow"
-                  style={{ width: '100%' }}
+                  className="bg-gradient-to-r from-purple-600 to-cyan-600 h-full transition-all duration-300 neon-glow"
+                  style={{ width: `${uploadProgress}%` }}
                 />
+              </div>
+
+              {/* Upload Stats */}
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3 text-center">
+                  <div className="text-purple-300 text-xs mb-1">Vitesse</div>
+                  <div className="text-cyan-300 font-bold">
+                    {uploadSpeed >= 1024 * 1024
+                      ? `${(uploadSpeed / (1024 * 1024)).toFixed(2)} MB/s`
+                      : `${(uploadSpeed / 1024).toFixed(2)} KB/s`}
+                  </div>
+                </div>
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3 text-center">
+                  <div className="text-purple-300 text-xs mb-1">Progression</div>
+                  <div className="text-cyan-300 font-bold">{uploadProgress.toFixed(0)}%</div>
+                </div>
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3 text-center">
+                  <div className="text-purple-300 text-xs mb-1">Uploadé</div>
+                  <div className="text-cyan-300 font-bold">
+                    {uploadedBytes >= 1024 * 1024
+                      ? `${(uploadedBytes / (1024 * 1024)).toFixed(1)} MB`
+                      : `${(uploadedBytes / 1024).toFixed(1)} KB`}
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3">

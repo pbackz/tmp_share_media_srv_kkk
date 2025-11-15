@@ -3,6 +3,7 @@ import { saveFileToR2, isR2Configured } from "@/lib/r2-storage";
 import { validateFile, sanitizeFilename } from "@/lib/file-validation";
 
 export const runtime = 'edge';
+export const maxDuration = 300; // 5 minutes timeout for large uploads
 
 export async function POST(request: NextRequest) {
   try {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFileFromR2, isR2Configured } from "@/lib/r2-storage";
 
 export const runtime = 'edge';
+export const maxDuration = 300; // 5 minutes timeout for large file downloads
 
 export async function GET(
   request: NextRequest,
