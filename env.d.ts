@@ -4,4 +4,5 @@
 // This must be in the global scope to augment the CloudflareEnv interface
 interface CloudflareEnv {
   METADATA_KV?: KVNamespace;
+  R2_BUCKET?: R2Bucket;
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from '@cloudflare/next-on-pages';
-import { saveFileToR2, isR2Configured } from "@/lib/r2-storage-kv";
+import { saveFileToR2, isR2Configured } from "@/lib/r2-storage-direct";
 import { validateFile, sanitizeFilename } from "@/lib/file-validation";
 
 export const runtime = 'edge';
@@ -8,13 +8,17 @@ export const maxDuration = 300; // 5 minutes timeout for large uploads
 
 export async function POST(request: NextRequest) {
   try {
-    // Get Cloudflare KV namespace if available
+    // Get Cloudflare bindings (KV and R2)
     let kv: any = undefined;
+    let r2Bucket: any = undefined;
+
     try {
       const ctx = getRequestContext();
       kv = ctx.env.METADATA_KV;
+      r2Bucket = ctx.env.R2_BUCKET;
+      console.log("[UPLOAD] Bindings - KV:", kv ? "Available" : "Not available", "R2:", r2Bucket ? "Available" : "Not available");
     } catch (e) {
-      console.log("KV not available, using in-memory fallback");
+      console.log("[UPLOAD] Bindings not available, using fallback. Error:", e);
     }
 
     const formData = await request.formData();
@@ -28,9 +32,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isR2Configured()) {
+    if (!isR2Configured(r2Bucket)) {
+      console.log("[UPLOAD] R2 bucket binding not configured!");
       return NextResponse.json(
-        { error: "Stockage R2 non configuré. Vérifiez les variables d'environnement dans Cloudflare Pages." },
+        { error: "Stockage R2 non configuré. Veuillez ajouter le binding R2_BUCKET dans Cloudflare Pages." },
         { status: 500 }
       );
     }
@@ -58,14 +63,15 @@ export async function POST(request: NextRequest) {
     // Sanitize filename to prevent security issues
     const sanitizedFilename = sanitizeFilename(file.name);
 
-    // Use Cloudflare R2 storage
-    console.log("Using Cloudflare R2 storage with", kv ? "KV" : "in-memory fallback");
+    // Use Cloudflare R2 storage with native binding
+    console.log("[UPLOAD] Using Cloudflare R2 native binding");
     const shareData = await saveFileToR2(
       file.stream(),
       sanitizedFilename,
       file.type,
       file.size,
       expiresInHours,
+      r2Bucket,
       kv
     );
 
