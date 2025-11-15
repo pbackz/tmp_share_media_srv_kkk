@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFile } from "@/lib/storage";
+import { getFile } from "@/lib/storage-stream";
+import { getFileFromR2, isR2Configured } from "@/lib/r2-storage";
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +8,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const result = await getFile(id);
+
+    const useR2 = isR2Configured();
+
+    const result = useR2
+      ? await getFileFromR2(id)
+      : await getFile(id);
 
     if (!result) {
       return NextResponse.json(
@@ -26,7 +32,7 @@ export async function GET(
   } catch (error) {
     console.error("File retrieval error:", error);
     return NextResponse.json(
-      { error: "Failed to retrieve file" },
+      { error: error instanceof Error ? error.message : "Failed to retrieve file" },
       { status: 500 }
     );
   }

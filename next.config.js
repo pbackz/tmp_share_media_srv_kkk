@@ -2,7 +2,7 @@
 const nextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: '1gb',
+      bodySizeLimit: '1gb', // 1GB max with Cloudflare R2
     },
   },
 };

@@ -9,58 +9,60 @@ npm run dev
 
 Ouvrez [http://localhost:3000](http://localhost:3000)
 
-## Déploiement sur Vercel (5 minutes)
+## Déploiement sur Cloudflare Pages (5 minutes)
 
-### Méthode 1 : CLI (Plus rapide)
+### Méthode 1 : Via l'interface Cloudflare (Recommandé)
 
+1. **Poussez sur GitHub** :
 ```bash
-# 1. Installer Vercel CLI
-npm install -g vercel
-
-# 2. Se connecter
-vercel login
-
-# 3. Déployer
-cd ~/temp-media-share
-vercel --prod
-```
-
-Votre site sera en ligne en quelques secondes!
-
-### Méthode 2 : GitHub + Interface Vercel
-
-1. **Initialiser Git et pousser sur GitHub** :
-```bash
-cd ~/temp-media-share
 git init
 git add .
 git commit -m "Initial commit: Temp media share app"
 gh repo create temp-media-share --public --source=. --push
-# ou utilisez l'interface GitHub pour créer un repo et:
-# git remote add origin https://github.com/USERNAME/temp-media-share.git
-# git branch -M main
-# git push -u origin main
 ```
 
-2. **Déployer via Vercel** :
-   - Allez sur [vercel.com](https://vercel.com)
-   - Cliquez "New Project"
-   - Importez votre repo GitHub
-   - Cliquez "Deploy" (aucune configuration nécessaire!)
+2. **Déployez via Cloudflare** :
+   - Allez sur [Cloudflare Dashboard](https://dash.cloudflare.com)
+   - **Workers & Pages** → **Create application** → **Pages**
+   - Connectez votre repo GitHub
+   - Framework: **Next.js** (auto-détecté)
+   - Cliquez **Save and Deploy**
 
-### Méthode 3 : Netlify
+3. **Ajoutez vos variables R2** (Settings → Environment variables) :
+   ```
+   R2_ACCOUNT_ID=xxx
+   R2_ACCESS_KEY_ID=xxx
+   R2_SECRET_ACCESS_KEY=xxx
+   R2_BUCKET_NAME=temp-media-share
+   ```
+
+4. **Redéployez** et votre site sera en ligne!
+
+### Méthode 2 : CLI avec Wrangler
 
 ```bash
-# 1. Installer Netlify CLI
-npm install -g netlify-cli
+# 1. Installer Wrangler
+npm install -g wrangler
 
 # 2. Se connecter
-netlify login
+wrangler login
 
-# 3. Déployer
-cd ~/temp-media-share
-netlify deploy --prod
+# 3. Construire pour Cloudflare Pages
+npx @cloudflare/next-on-pages@1
+
+# 4. Déployer
+wrangler pages deploy .vercel/output/static --project-name=temp-media-share
 ```
+
+## Configurer Cloudflare R2
+
+Voir le guide complet : [CLOUDFLARE_R2_SETUP.md](./CLOUDFLARE_R2_SETUP.md)
+
+**Résumé rapide** :
+1. Dashboard Cloudflare → **R2** → **Create bucket** (`temp-media-share`)
+2. **Manage R2 API Tokens** → **Create API token**
+3. Copiez vos credentials
+4. Ajoutez-les dans Cloudflare Pages Settings
 
 ## Tester l'application
 
@@ -75,7 +77,6 @@ netlify deploy --prod
 
 3. **Vérifier l'expiration** :
    - Les fichiers sont automatiquement supprimés après expiration
-   - Testez avec une durée courte (1 heure)
 
 ## Personnalisation rapide
 
@@ -88,13 +89,13 @@ body {
 ```
 
 ### Modifier la limite de taille
-Éditez `app/api/upload/route.ts` ligne 15 :
+Éditez `app/api/upload/route.ts` ligne 22 :
 ```typescript
-const maxSize = 20 * 1024 * 1024; // 20MB au lieu de 10MB
+const maxSize = 2 * 1024 * 1024 * 1024; // 2GB au lieu de 1GB
 ```
 
 ### Ajouter des durées d'expiration
-Éditez `app/page.tsx` lignes 67-72 :
+Éditez `app/page.tsx` :
 ```tsx
 <option value="12">12 heures</option>
 <option value="48">2 jours</option>
@@ -103,18 +104,41 @@ const maxSize = 20 * 1024 * 1024; // 20MB au lieu de 10MB
 ## Problèmes courants
 
 **Q: Les fichiers disparaissent après redémarrage?**
-R: Normal! En développement, les fichiers sont dans `/data`. En production sur Vercel, utilisez Vercel Blob Storage.
+R: Configurez Cloudflare R2 pour un stockage persistant cloud.
 
 **Q: "Module not found" lors du build?**
 R: Relancez `npm install`
 
-**Q: Le site est lent?**
-R: Activez la compression et CDN (automatique sur Vercel)
+**Q: Erreur "R2 not configured"?**
+R: Ajoutez vos variables d'environnement R2 dans Cloudflare Pages Settings.
 
 ## URL de démonstration
 
 Une fois déployé, votre URL ressemblera à :
-- Vercel: `https://temp-media-share.vercel.app`
-- Netlify: `https://temp-media-share.netlify.app`
+- `https://temp-media-share.pages.dev`
+- Ou avec domaine custom: `https://votredomaine.com`
 
-Vous pouvez configurer un domaine personnalisé dans les paramètres de votre plateforme d'hébergement.
+Vous pouvez configurer un domaine personnalisé dans les paramètres Cloudflare Pages.
+
+## Commandes utiles
+
+```bash
+# Développement local
+npm run dev
+
+# Build production
+npm run build
+
+# Vérifier le build
+npm run start
+
+# Déployer sur Cloudflare
+npx @cloudflare/next-on-pages@1
+wrangler pages deploy .vercel/output/static
+```
+
+## Support
+
+- [Documentation Cloudflare Pages](https://developers.cloudflare.com/pages/)
+- [Documentation Cloudflare R2](https://developers.cloudflare.com/r2/)
+- [Guide complet R2](./CLOUDFLARE_R2_SETUP.md)

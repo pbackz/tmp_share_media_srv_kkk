@@ -162,8 +162,7 @@ export default function Home() {
 
       {/* Info Section */}
       <div className="mt-8 text-center text-gray-600 text-sm">
-        <p>Taille maximale: 1 GB par fichier</p>
-        <p className="mt-1">Les fichiers sont automatiquement supprimés après expiration</p>
+        <p>Les fichiers sont automatiquement supprimés après expiration</p>
       </div>
     </main>
   );
