@@ -109,13 +109,15 @@ export async function saveFileToR2(
   // Convert stream to buffer for upload
   const buffer = await streamToBuffer(fileStream);
 
-  // Upload to R2
+  // Upload to R2 with security headers
   await client.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: filename,
       Body: buffer,
       ContentType: mimeType,
+      ContentDisposition: `attachment; filename="${originalName}"`, // Force download for security
+      CacheControl: 'no-cache, no-store, must-revalidate',
       Metadata: {
         originalName,
         uploadedAt: Date.now().toString(),

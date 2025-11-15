@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveFileToR2, isR2Configured } from "@/lib/r2-storage";
+import { validateFile, sanitizeFilename } from "@/lib/file-validation";
 
 export const runtime = 'edge';
 
@@ -11,35 +12,46 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { error: "No file provided" },
+        { error: "Aucun fichier fourni" },
         { status: 400 }
       );
     }
 
     if (!isR2Configured()) {
       return NextResponse.json(
-        { error: "Cloudflare R2 storage not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY environment variables." },
+        { error: "Stockage R2 non configuré" },
         { status: 500 }
       );
     }
 
-    // 1GB file size limit with Cloudflare R2
-    const maxSize = 1024 * 1024 * 1024;
+    // Validate file (security checks)
+    const maxSize = 1024 * 1024 * 1024; // 1GB
+    const validation = validateFile(file, maxSize);
 
-    if (file.size > maxSize) {
+    if (!validation.valid) {
       return NextResponse.json(
-        { error: `File size exceeds 1GB limit.` },
+        { error: validation.error },
         { status: 400 }
       );
     }
 
+    // Validate expiration time
     const expiresInHours = parseInt(expiresIn) || 1;
+    if (expiresInHours < 1 || expiresInHours > 168) { // Max 1 week
+      return NextResponse.json(
+        { error: "Durée d'expiration invalide (1h - 168h)" },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize filename to prevent security issues
+    const sanitizedFilename = sanitizeFilename(file.name);
 
     // Use Cloudflare R2 storage
     console.log("Using Cloudflare R2 storage");
     const shareData = await saveFileToR2(
       file.stream(),
-      file.name,
+      sanitizedFilename,
       file.type,
       file.size,
       expiresInHours

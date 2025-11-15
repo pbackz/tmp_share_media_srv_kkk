@@ -144,7 +144,7 @@ export default function Home() {
               type="file"
               onChange={handleFileChange}
               className="block w-full text-sm text-cyan-300 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600/30 file:text-cyan-300 hover:file:bg-purple-500/40 file:neon-glow cursor-pointer border border-purple-500/30 rounded-lg p-2 bg-black/30"
-              accept="image/*,video/*,application/pdf,.doc,.docx,.txt"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.webm,.mov,.pdf,.txt,.mp3,.wav"
             />
             {file && (
               <p className="mt-2 text-sm text-cyan-200">
