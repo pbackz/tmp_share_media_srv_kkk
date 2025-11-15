@@ -1,0 +1,13 @@
+name = "flash-share-upload-worker"
+main = "upload-worker.js"
+compatibility_date = "2024-01-01"
+
+# KV Namespace binding
+[[kv_namespaces]]
+binding = "METADATA_KV"
+id = "1bb2f71ed4d94aa6977556d0ce09d9a0"
+
+# R2 Bucket binding
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "flash-share-data-storage"

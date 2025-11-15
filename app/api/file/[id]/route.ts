@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getRequestContext } from '@cloudflare/next-on-pages';
-import { getFileFromR2, isR2Configured } from "@/lib/r2-storage-direct";
+import { NextRequest } from "next/server";
 
-export const runtime = 'edge';
-export const maxDuration = 300; // 5 minutes timeout for large file downloads
+// Proxy to Cloudflare Worker (no edge runtime needed, avoids async_hooks issue)
+const WORKER_URL = process.env.WORKER_URL || "https://flash-share-upload-worker.pierre-baconnier.workers.dev";
 
 export async function GET(
   request: NextRequest,
@@ -12,46 +10,30 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // Get Cloudflare bindings
-    let kv: any = undefined;
-    let r2Bucket: any = undefined;
+    // Forward to Worker
+    const workerResponse = await fetch(`${WORKER_URL}/file/${id}`);
 
-    try {
-      const ctx = getRequestContext();
-      kv = ctx.env.METADATA_KV;
-      r2Bucket = ctx.env.R2_BUCKET;
-    } catch (e) {
-      console.log("[DOWNLOAD] Bindings not available");
+    if (!workerResponse.ok) {
+      const error = await workerResponse.json();
+      return new Response(JSON.stringify(error), {
+        status: workerResponse.status,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    if (!isR2Configured(r2Bucket)) {
-      return NextResponse.json(
-        { error: "Cloudflare R2 storage not configured" },
-        { status: 500 }
-      );
-    }
-
-    const result = await getFileFromR2(id, r2Bucket, kv);
-
-    if (!result) {
-      return NextResponse.json(
-        { error: "File not found or expired" },
-        { status: 404 }
-      );
-    }
-
-    return new Response(result.buffer, {
+    // Return Worker's response (file stream)
+    return new Response(workerResponse.body, {
       headers: {
-        "Content-Type": result.data.mimeType,
-        "Content-Disposition": `inline; filename="${result.data.originalName}"`,
+        "Content-Type": workerResponse.headers.get("Content-Type") || "application/octet-stream",
+        "Content-Disposition": workerResponse.headers.get("Content-Disposition") || "inline",
         "Cache-Control": "no-cache, no-store, must-revalidate",
       },
     });
   } catch (error) {
-    console.error("File retrieval error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to retrieve file" },
-      { status: 500 }
-    );
+    console.error("Download proxy error:", error);
+    return new Response(JSON.stringify({ error: "Failed to retrieve file" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
