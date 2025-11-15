@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 export default function Home() {
@@ -11,7 +11,7 @@ export default function Home() {
   const [showHandbrakeHelp, setShowHandbrakeHelp] = useState(false);
   const [handbrakeMessage, setHandbrakeMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const abortControllerRef = useState<AbortController | null>(null)[0];
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -52,7 +52,7 @@ export default function Home() {
 
     // Create abort controller for this upload
     const abortController = new AbortController();
-    (abortControllerRef as any) = abortController;
+    abortControllerRef.current = abortController;
 
     setUploading(true);
     setUploadProgress(0);
@@ -86,13 +86,13 @@ export default function Home() {
     } finally {
       setUploading(false);
       setUploadProgress(0);
-      (abortControllerRef as any) = null;
+      abortControllerRef.current = null;
     }
   };
 
   const handleCancelUpload = () => {
-    if (abortControllerRef) {
-      (abortControllerRef as AbortController).abort();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -125,49 +125,49 @@ export default function Home() {
   };
 
   return (
-    <main className="container mx-auto px-4 py-16 max-w-2xl">
-      <div className="bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2 text-center">
-          Flash Share
+    <main className="container mx-auto px-4 py-16 max-w-2xl relative z-10">
+      <div className="glass-dark rounded-2xl neon-glow p-8">
+        <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 mb-2 text-center neon-text">
+          ⚡ FLASH SHARE ⚡
         </h1>
-        <p className="text-gray-600 text-center mb-8">
+        <p className="text-cyan-300 text-center mb-8 text-lg">
           Partage simplement tes fichiers avec des liens qui expirent automatiquement
         </p>
 
         <div className="space-y-6">
           {/* Upload Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sélectionnez un fichier
+            <label className="block text-sm font-medium text-purple-300 mb-2">
+              📁 Sélectionnez un fichier
             </label>
             <input
               type="file"
               onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+              className="block w-full text-sm text-cyan-300 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600/30 file:text-cyan-300 hover:file:bg-purple-500/40 file:neon-glow cursor-pointer border border-purple-500/30 rounded-lg p-2 bg-black/30"
               accept="image/*,video/*,application/pdf,.doc,.docx,.txt"
             />
             {file && (
-              <p className="mt-2 text-sm text-gray-600">
-                Fichier sélectionné: <span className="font-semibold">{file.name}</span> (
-                {(file.size / 1024 / 1024).toFixed(2)} MB)
+              <p className="mt-2 text-sm text-cyan-200">
+                Fichier sélectionné: <span className="font-semibold text-purple-300">{file.name}</span> (
+                <span className="text-cyan-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>)
               </p>
             )}
           </div>
 
           {/* HandBrake Help Alert */}
           {showHandbrakeHelp && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+            <div className="bg-purple-900/30 border-2 border-purple-500/50 rounded-lg p-4 neon-glow">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-blue-800 mb-1">
+                  <h4 className="text-sm font-semibold text-cyan-300 mb-1">
                     💡 Astuce : Utilisez HandBrake
                   </h4>
-                  <p className="text-sm text-blue-700 mb-3">
+                  <p className="text-sm text-purple-200 mb-3">
                     {handbrakeMessage}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -175,7 +175,7 @@ export default function Home() {
                       href="https://handbrake.fr/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-purple-500 hover:to-cyan-500 transition-all neon-glow-cyan"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -184,12 +184,12 @@ export default function Home() {
                     </a>
                     <button
                       onClick={() => setShowHandbrakeHelp(false)}
-                      className="px-4 py-2 text-sm text-blue-700 hover:text-blue-900 font-medium"
+                      className="px-4 py-2 text-sm text-cyan-300 hover:text-cyan-100 font-medium border border-cyan-500/50 rounded-lg hover:border-cyan-400"
                     >
                       Continuer quand même
                     </button>
                   </div>
-                  <p className="text-xs text-blue-600 mt-2">
+                  <p className="text-xs text-purple-300 mt-2">
                     HandBrake est gratuit, open-source et disponible sur Windows, Mac et Linux
                   </p>
                 </div>
@@ -199,19 +199,19 @@ export default function Home() {
 
           {/* Expiration Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Durée de validité du lien
+            <label className="block text-sm font-medium text-purple-300 mb-2">
+              ⏱️ Durée de validité du lien
             </label>
             <select
               value={expiresIn}
               onChange={(e) => setExpiresIn(e.target.value)}
-              className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="block w-full px-4 py-3 border border-purple-500/50 rounded-lg bg-black/30 text-cyan-300 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 neon-glow transition-all"
             >
-              <option value="1">1 heure</option>
-              <option value="6">6 heures</option>
-              <option value="24">24 heures</option>
-              <option value="72">3 jours</option>
-              <option value="168">1 semaine</option>
+              <option value="1" className="bg-gray-900">⚡ 1 heure</option>
+              <option value="6" className="bg-gray-900">🕐 6 heures</option>
+              <option value="24" className="bg-gray-900">📅 24 heures</option>
+              <option value="72" className="bg-gray-900">📆 3 jours</option>
+              <option value="168" className="bg-gray-900">🗓️ 1 semaine</option>
             </select>
           </div>
 
@@ -220,22 +220,22 @@ export default function Home() {
             <button
               onClick={handleUpload}
               disabled={!file}
-              className="w-full bg-indigo-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-lg"
+              className="w-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:from-purple-500 hover:to-cyan-500 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed transition-all glow-pulse"
             >
-              Générer le lien de partage
+              ⚡ GÉNÉRER LE LIEN ⚡
             </button>
           ) : (
             <div className="space-y-3">
               {/* Upload Progress */}
-              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden border border-purple-500/50">
                 <div
-                  className="bg-indigo-600 h-full transition-all duration-300 animate-pulse"
+                  className="bg-gradient-to-r from-purple-600 to-cyan-600 h-full transition-all duration-300 animate-pulse neon-glow"
                   style={{ width: '100%' }}
                 />
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-1 bg-indigo-100 text-indigo-700 py-4 px-6 rounded-lg font-semibold text-lg text-center">
+                <div className="flex-1 bg-purple-900/30 border border-cyan-500/50 text-cyan-300 py-4 px-6 rounded-lg font-semibold text-lg text-center neon-glow-cyan">
                   <div className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -247,9 +247,9 @@ export default function Home() {
 
                 <button
                   onClick={handleCancelUpload}
-                  className="px-6 py-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-lg whitespace-nowrap"
+                  className="px-6 py-4 bg-red-600/80 border border-red-500 text-white rounded-lg font-semibold hover:bg-red-500 transition-all neon-glow whitespace-nowrap"
                 >
-                  Annuler
+                  ❌ Annuler
                 </button>
               </div>
             </div>
@@ -257,23 +257,24 @@ export default function Home() {
 
           {/* Share Link Display */}
           {shareLink && (
-            <div className="mt-6 p-6 bg-green-50 rounded-lg border-2 border-green-200">
-              <h3 className="font-semibold text-green-800 mb-4">
-                Lien de partage généré!
+            <div className="mt-6 p-6 bg-gradient-to-r from-purple-900/40 to-cyan-900/40 rounded-lg border-2 border-cyan-500/50 neon-glow-cyan">
+              <h3 className="font-semibold text-cyan-300 mb-4 text-xl neon-text-cyan">
+                ✨ Lien de partage généré! ✨
               </h3>
 
               {/* QR Code Section */}
               <div className="flex flex-col md:flex-row gap-6 items-center">
                 {/* QR Code */}
-                <div className="bg-white p-4 rounded-lg shadow-md">
+                <div className="bg-white p-4 rounded-lg shadow-md neon-glow">
                   <QRCodeSVG
                     value={shareLink}
                     size={180}
                     level="H"
                     includeMargin={true}
+                    fgColor="#8b5cf6"
                   />
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    Scannez pour partager
+                  <p className="text-xs text-gray-700 text-center mt-2 font-semibold">
+                    📱 Scannez pour partager
                   </p>
                 </div>
 
@@ -284,22 +285,22 @@ export default function Home() {
                       type="text"
                       value={shareLink}
                       readOnly
-                      className="flex-1 px-4 py-2 bg-white border border-green-300 rounded-lg text-sm"
+                      className="flex-1 px-4 py-2 bg-black/40 border border-cyan-500/50 rounded-lg text-sm text-cyan-200"
                     />
                     <button
                       onClick={copyToClipboard}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap"
+                      className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-purple-600 text-white rounded-lg hover:from-cyan-500 hover:to-purple-500 transition-all font-medium whitespace-nowrap neon-glow"
                     >
-                      Copier
+                      📋 Copier
                     </button>
                   </div>
-                  <p className="text-sm text-green-700">
-                    Ce lien expirera dans {expiresIn === "1" ? "1 heure" :
+                  <p className="text-sm text-purple-200">
+                    ⏱️ Ce lien expirera dans <span className="text-cyan-300 font-bold">{expiresIn === "1" ? "1 heure" :
                       expiresIn === "6" ? "6 heures" :
                       expiresIn === "24" ? "24 heures" :
-                      expiresIn === "72" ? "3 jours" : "1 semaine"}
+                      expiresIn === "72" ? "3 jours" : "1 semaine"}</span>
                   </p>
-                  <p className="text-xs text-green-600 mt-2">
+                  <p className="text-xs text-cyan-400 mt-2">
                     💡 Utilisez le QR code pour partager facilement sur mobile
                   </p>
                 </div>
@@ -310,8 +311,23 @@ export default function Home() {
       </div>
 
       {/* Info Section */}
-      <div className="mt-8 text-center text-gray-600 text-sm">
-        <p>Les fichiers sont automatiquement supprimés après expiration</p>
+      <div className="mt-8 text-center text-purple-300 text-sm space-y-2">
+        <p className="flex items-center justify-center gap-2">
+          <span className="text-cyan-400">⚡</span>
+          Les fichiers sont automatiquement supprimés après expiration
+          <span className="text-cyan-400">⚡</span>
+        </p>
+        <p className="text-cyan-400/60 text-xs">
+          © {new Date().getFullYear()}{" "}
+          <a
+            href="https://github.com/pbackz/tmp_share_media_srv_kkk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-cyan-400 transition-colors underline"
+          >
+            pbackz
+          </a>
+        </p>
       </div>
     </main>
   );
