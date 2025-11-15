@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveFileStream } from "@/lib/storage-stream";
 import { saveFileToR2, isR2Configured } from "@/lib/r2-storage";
 
 export const runtime = 'edge';
@@ -17,55 +16,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const useR2 = isR2Configured();
+    if (!isR2Configured()) {
+      return NextResponse.json(
+        { error: "Cloudflare R2 storage not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY environment variables." },
+        { status: 500 }
+      );
+    }
 
-    // Dynamic file size limit based on storage backend
-    const maxSize = useR2
-      ? 1024 * 1024 * 1024 // 1GB with Cloudflare R2
-      : 100 * 1024 * 1024;  // 100MB with local storage
+    // 1GB file size limit with Cloudflare R2
+    const maxSize = 1024 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      const limitText = useR2 ? "1GB" : "100MB";
-      const upgradeText = useR2
-        ? ""
-        : " Configure Cloudflare R2 for files up to 1GB.";
-
       return NextResponse.json(
-        { error: `File size exceeds ${limitText} limit.${upgradeText}` },
+        { error: `File size exceeds 1GB limit.` },
         { status: 400 }
       );
     }
 
     const expiresInHours = parseInt(expiresIn) || 1;
 
-    let shareData;
-
-    if (useR2) {
-      // Use Cloudflare R2 (supports large files)
-      console.log("Using Cloudflare R2 storage");
-      shareData = await saveFileToR2(
-        file.stream(),
-        file.name,
-        file.type,
-        file.size,
-        expiresInHours
-      );
-    } else {
-      // Fallback to local streaming storage
-      console.log("Using local streaming storage (R2 not configured)");
-      shareData = await saveFileStream(
-        file.stream(),
-        file.name,
-        file.type,
-        file.size,
-        expiresInHours
-      );
-    }
+    // Use Cloudflare R2 storage
+    console.log("Using Cloudflare R2 storage");
+    const shareData = await saveFileToR2(
+      file.stream(),
+      file.name,
+      file.type,
+      file.size,
+      expiresInHours
+    );
 
     return NextResponse.json({
       id: shareData.id,
       expiresAt: shareData.expiresAt,
-      storage: useR2 ? "cloudflare-r2" : "local",
+      storage: "cloudflare-r2",
     });
   } catch (error) {
     console.error("Upload error:", error);

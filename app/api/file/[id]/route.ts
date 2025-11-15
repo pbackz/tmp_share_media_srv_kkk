@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFile } from "@/lib/storage-stream";
 import { getFileFromR2, isR2Configured } from "@/lib/r2-storage";
 
 export const runtime = 'edge';
@@ -11,11 +10,14 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const useR2 = isR2Configured();
+    if (!isR2Configured()) {
+      return NextResponse.json(
+        { error: "Cloudflare R2 storage not configured" },
+        { status: 500 }
+      );
+    }
 
-    const result = useR2
-      ? await getFileFromR2(id)
-      : await getFile(id);
+    const result = await getFileFromR2(id);
 
     if (!result) {
       return NextResponse.json(
