@@ -1,14 +1,18 @@
 # Cloudflare Pages Configuration
-name = "temp-media-share"
+name = "tmp-share-media-srv-kkk"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
-[env.production]
-# Variables d'environnement à configurer via l'interface Cloudflare Pages
-# ou via : wrangler pages secret put VARIABLE_NAME
+# KV Namespace binding pour les métadonnées
+[[kv_namespaces]]
+binding = "METADATA_KV"
+id = "1bb2f71ed4d94aa6977556d0ce09d9a0"
 
-# R2_ACCOUNT_ID
-# R2_ACCESS_KEY_ID
-# R2_SECRET_ACCESS_KEY
-# R2_BUCKET_NAME
+# R2 Bucket binding pour le stockage des fichiers
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "flash-share-data-storage"
+
+[env.production]
+# Plus besoin de variables d'environnement R2, on utilise les bindings natifs maintenant!
