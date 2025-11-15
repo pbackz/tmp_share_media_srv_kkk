@@ -26,7 +26,7 @@ export async function GET(
       );
     }
 
-    return new Response(new Uint8Array(result.buffer), {
+    return new Response(result.buffer, {
       headers: {
         "Content-Type": result.data.mimeType,
         "Content-Disposition": `inline; filename="${result.data.originalName}"`,

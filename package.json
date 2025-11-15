@@ -12,7 +12,6 @@
     "pages:dev": "npx @cloudflare/next-on-pages --dev"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.932.0",
     "nanoid": "^5.0.0",
     "next": "^15.0.0",
     "qrcode.react": "^4.2.0",

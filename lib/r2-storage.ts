@@ -1,6 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { nanoid } from "nanoid";
-import { Readable } from "stream";
 
 export interface ShareData {
   id: string;
@@ -16,37 +14,28 @@ export interface ShareData {
 // For production, consider Cloudflare D1 (SQLite) or Durable Objects
 const metadata: Record<string, ShareData> = {};
 
-// Initialize R2 client
-let r2Client: S3Client | null = null;
+const BUCKET_NAME = process.env.R2_BUCKET_NAME || "temp-media-share";
 
-function getR2Client(): S3Client | null {
-  if (r2Client) return r2Client;
-
+// Get R2 configuration
+function getR2Config() {
   const accountId = process.env.R2_ACCOUNT_ID;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
-    console.warn("R2 credentials not configured. Using local storage fallback.");
     return null;
   }
 
-  r2Client = new S3Client({
-    region: "auto",
+  return {
+    accountId,
+    accessKeyId,
+    secretAccessKey,
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  });
-
-  return r2Client;
+  };
 }
 
-const BUCKET_NAME = process.env.R2_BUCKET_NAME || "temp-media-share";
-
-// Convert Web ReadableStream to Buffer
-async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
+// Convert Web ReadableStream to ArrayBuffer
+async function streamToArrayBuffer(stream: ReadableStream): Promise<ArrayBuffer> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
 
@@ -56,13 +45,90 @@ async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
     chunks.push(value);
   }
 
-  return Buffer.concat(chunks);
+  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return result.buffer;
+}
+
+// Helper to create AWS Signature V4
+async function signRequest(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: ArrayBuffer | null,
+  config: ReturnType<typeof getR2Config>
+) {
+  if (!config) throw new Error("R2 not configured");
+
+  const encoder = new TextEncoder();
+  const algorithm = 'AWS4-HMAC-SHA256';
+  const date = new Date();
+  const dateStamp = date.toISOString().split('T')[0].replace(/-/g, '');
+  const amzDate = date.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, -1) + 'Z';
+
+  headers['x-amz-date'] = amzDate;
+  headers['host'] = new URL(url).host;
+
+  // Create canonical request
+  const canonicalUri = new URL(url).pathname;
+  const canonicalQuerystring = '';
+  const canonicalHeaders = Object.keys(headers)
+    .sort()
+    .map(key => `${key.toLowerCase()}:${headers[key].trim()}\n`)
+    .join('');
+  const signedHeaders = Object.keys(headers).sort().map(k => k.toLowerCase()).join(';');
+
+  const payloadHash = body
+    ? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', body)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+    : 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+  const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+  // Create string to sign
+  const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+  const canonicalRequestHash = Array.from(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(canonicalRequest)))
+  ).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${canonicalRequestHash}`;
+
+  // Calculate signature
+  async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    return await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data));
+  }
+
+  let kDate = await hmac(encoder.encode(`AWS4${config.secretAccessKey}`), dateStamp);
+  let kRegion = await hmac(kDate, 'auto');
+  let kService = await hmac(kRegion, 's3');
+  let kSigning = await hmac(kService, 'aws4_request');
+  let signature = Array.from(new Uint8Array(await hmac(kSigning, stringToSign)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  headers['authorization'] = `${algorithm} Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  return headers;
 }
 
 // Clean expired files
 export async function cleanExpiredFiles() {
-  const client = getR2Client();
-  if (!client) return;
+  const config = getR2Config();
+  if (!config) return;
 
   const now = Date.now();
   const expiredIds: string[] = [];
@@ -70,13 +136,17 @@ export async function cleanExpiredFiles() {
   for (const [id, data] of Object.entries(metadata)) {
     if (data.expiresAt < now) {
       try {
-        await client.send(
-          new DeleteObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: data.filename,
-          })
-        );
-        expiredIds.push(id);
+        const url = `${config.endpoint}/${BUCKET_NAME}/${data.filename}`;
+        const headers = await signRequest('DELETE', url, {}, null, config);
+
+        const response = await fetch(url, {
+          method: 'DELETE',
+          headers,
+        });
+
+        if (response.ok) {
+          expiredIds.push(id);
+        }
       } catch (error) {
         console.error(`Error deleting file ${id}:`, error);
       }
@@ -94,9 +164,9 @@ export async function saveFileToR2(
   size: number,
   expiresInHours: number
 ): Promise<ShareData> {
-  const client = getR2Client();
+  const config = getR2Config();
 
-  if (!client) {
+  if (!config) {
     throw new Error("R2 not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables.");
   }
 
@@ -106,24 +176,30 @@ export async function saveFileToR2(
   const ext = originalName.substring(originalName.lastIndexOf("."));
   const filename = `${id}${ext}`;
 
-  // Convert stream to buffer for upload
-  const buffer = await streamToBuffer(fileStream);
+  // Convert stream to ArrayBuffer for upload
+  const body = await streamToArrayBuffer(fileStream);
 
-  // Upload to R2 with security headers
-  await client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: filename,
-      Body: buffer,
-      ContentType: mimeType,
-      ContentDisposition: `attachment; filename="${originalName}"`, // Force download for security
-      CacheControl: 'no-cache, no-store, must-revalidate',
-      Metadata: {
-        originalName,
-        uploadedAt: Date.now().toString(),
-      },
-    })
-  );
+  // Upload to R2 with security headers using fetch
+  const url = `${config.endpoint}/${BUCKET_NAME}/${filename}`;
+  const headers = {
+    'content-type': mimeType,
+    'content-disposition': `attachment; filename="${originalName}"`,
+    'cache-control': 'no-cache, no-store, must-revalidate',
+    'x-amz-meta-originalname': originalName,
+    'x-amz-meta-uploadedat': Date.now().toString(),
+  };
+
+  const signedHeaders = await signRequest('PUT', url, headers, body, config);
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: signedHeaders,
+    body,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload to R2: ${response.status} ${response.statusText}`);
+  }
 
   const shareData: ShareData = {
     id,
@@ -141,7 +217,7 @@ export async function saveFileToR2(
 }
 
 // Get file from R2
-export async function getFileFromR2(id: string): Promise<{ data: ShareData; buffer: Buffer } | null> {
+export async function getFileFromR2(id: string): Promise<{ data: ShareData; buffer: ArrayBuffer } | null> {
   await cleanExpiredFiles();
 
   const shareData = metadata[id];
@@ -154,33 +230,27 @@ export async function getFileFromR2(id: string): Promise<{ data: ShareData; buff
     return null;
   }
 
-  const client = getR2Client();
+  const config = getR2Config();
 
-  if (!client) {
+  if (!config) {
     throw new Error("R2 not configured.");
   }
 
   try {
-    const response = await client.send(
-      new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: shareData.filename,
-      })
-    );
+    const url = `${config.endpoint}/${BUCKET_NAME}/${shareData.filename}`;
+    const headers = await signRequest('GET', url, {}, null, config);
 
-    if (!response.Body) {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to get file from R2: ${response.status}`);
       return null;
     }
 
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = [];
-    const stream = response.Body as Readable;
-
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-
-    const buffer = Buffer.concat(chunks);
+    const buffer = await response.arrayBuffer();
 
     return { data: shareData, buffer };
   } catch (error) {
@@ -191,5 +261,5 @@ export async function getFileFromR2(id: string): Promise<{ data: ShareData; buff
 
 // Check if R2 is configured
 export function isR2Configured(): boolean {
-  return getR2Client() !== null;
+  return getR2Config() !== null;
 }
