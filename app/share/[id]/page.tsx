@@ -4,6 +4,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
+export const runtime = 'edge';
+
 interface FileInfo {
   originalName: string;
   mimeType: string;

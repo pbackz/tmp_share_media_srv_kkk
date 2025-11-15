@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveFileStream } from "@/lib/storage-stream";
 import { saveFileToR2, isR2Configured } from "@/lib/r2-storage";
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFile } from "@/lib/storage-stream";
 import { getFileFromR2, isR2Configured } from "@/lib/r2-storage";
 
+export const runtime = 'edge';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
