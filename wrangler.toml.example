@@ -7,9 +7,14 @@ compatibility_date = "2024-01-01"
 
 # KV Namespace pour le stockage des métadonnées
 # À créer et configurer dans Cloudflare Pages dashboard
+#
+# Configuration dans le dashboard :
+# - Variable name: METADATA_KV
+# - KV namespace: temp-media-share-metadata
 [[kv_namespaces]]
 binding = "METADATA_KV"
 id = "votre_kv_namespace_id"
+# Le namespace doit être nommé: temp-media-share-metadata
 
 # Variables d'environnement R2 (à configurer dans le dashboard)
 # Ces variables doivent être définies dans :
