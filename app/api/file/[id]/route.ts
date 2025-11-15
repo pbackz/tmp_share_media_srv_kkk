@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFileFromR2, isR2Configured } from "@/lib/r2-storage";
+import { getRequestContext } from '@cloudflare/next-on-pages';
+import { getFileFromR2, isR2Configured } from "@/lib/r2-storage-kv";
 
 export const runtime = 'edge';
 export const maxDuration = 300; // 5 minutes timeout for large file downloads
@@ -11,6 +12,15 @@ export async function GET(
   try {
     const { id } = await params;
 
+    // Get Cloudflare KV namespace if available
+    let kv: any = undefined;
+    try {
+      const ctx = getRequestContext();
+      kv = ctx.env.METADATA_KV;
+    } catch (e) {
+      console.log("KV not available, using in-memory fallback");
+    }
+
     if (!isR2Configured()) {
       return NextResponse.json(
         { error: "Cloudflare R2 storage not configured" },
@@ -18,7 +28,7 @@ export async function GET(
       );
     }
 
-    const result = await getFileFromR2(id);
+    const result = await getFileFromR2(id, kv);
 
     if (!result) {
       return NextResponse.json(

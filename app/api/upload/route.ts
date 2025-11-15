@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveFileToR2, isR2Configured } from "@/lib/r2-storage";
+import { getRequestContext } from '@cloudflare/next-on-pages';
+import { saveFileToR2, isR2Configured } from "@/lib/r2-storage-kv";
 import { validateFile, sanitizeFilename } from "@/lib/file-validation";
 
 export const runtime = 'edge';
@@ -7,6 +8,15 @@ export const maxDuration = 300; // 5 minutes timeout for large uploads
 
 export async function POST(request: NextRequest) {
   try {
+    // Get Cloudflare KV namespace if available
+    let kv: any = undefined;
+    try {
+      const ctx = getRequestContext();
+      kv = ctx.env.METADATA_KV;
+    } catch (e) {
+      console.log("KV not available, using in-memory fallback");
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const expiresIn = formData.get("expiresIn") as string;
@@ -20,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (!isR2Configured()) {
       return NextResponse.json(
-        { error: "Stockage R2 non configuré" },
+        { error: "Stockage R2 non configuré. Vérifiez les variables d'environnement dans Cloudflare Pages." },
         { status: 500 }
       );
     }
@@ -49,13 +59,14 @@ export async function POST(request: NextRequest) {
     const sanitizedFilename = sanitizeFilename(file.name);
 
     // Use Cloudflare R2 storage
-    console.log("Using Cloudflare R2 storage");
+    console.log("Using Cloudflare R2 storage with", kv ? "KV" : "in-memory fallback");
     const shareData = await saveFileToR2(
       file.stream(),
       sanitizedFilename,
       file.type,
       file.size,
-      expiresInHours
+      expiresInHours,
+      kv
     );
 
     return NextResponse.json({

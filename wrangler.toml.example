@@ -1,0 +1,21 @@
+# Exemple de configuration Wrangler pour Cloudflare Pages
+# Ce fichier n'est PAS utilisé directement par Cloudflare Pages
+# Il sert uniquement de référence pour les bindings à configurer dans le dashboard
+
+name = "temp-media-share"
+compatibility_date = "2024-01-01"
+
+# KV Namespace pour le stockage des métadonnées
+# À créer et configurer dans Cloudflare Pages dashboard
+[[kv_namespaces]]
+binding = "METADATA_KV"
+id = "votre_kv_namespace_id"
+
+# Variables d'environnement R2 (à configurer dans le dashboard)
+# Ces variables doivent être définies dans :
+# Pages > Votre projet > Settings > Environment variables
+
+# R2_ACCOUNT_ID = "votre_account_id"
+# R2_ACCESS_KEY_ID = "votre_access_key_id"
+# R2_SECRET_ACCESS_KEY = "votre_secret_access_key"
+# R2_BUCKET_NAME = "temp-media-share"

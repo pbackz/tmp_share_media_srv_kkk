@@ -8,6 +8,13 @@ export interface ShareData {
   createdAt: number;
 }
 
+// Cloudflare KV namespace type
+interface KVNamespace {
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+
 // Generate a secure random ID using Web Crypto API
 function generateId(length: number = 10): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -18,39 +25,16 @@ function generateId(length: number = 10): string {
     .join('');
 }
 
-// In-memory metadata store (for demo - in production use a database)
-// For production, consider Cloudflare D1 (SQLite) or Durable Objects
+// In-memory metadata store fallback (for demo - in production use KV)
 const metadata: Record<string, ShareData> = {};
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || "temp-media-share";
 
-// Get R2 configuration from Cloudflare bindings or environment
+// Get R2 configuration from environment variables
 function getR2Config() {
-  // Try to get from globalThis first (Cloudflare bindings)
-  let accountId: string | undefined;
-  let accessKeyId: string | undefined;
-  let secretAccessKey: string | undefined;
-
-  try {
-    // @ts-ignore - Cloudflare runtime global
-    if (typeof R2_ACCOUNT_ID !== 'undefined') {
-      // @ts-ignore
-      accountId = R2_ACCOUNT_ID;
-      // @ts-ignore
-      accessKeyId = R2_ACCESS_KEY_ID;
-      // @ts-ignore
-      secretAccessKey = R2_SECRET_ACCESS_KEY;
-    }
-  } catch (e) {
-    // Fallback to process.env for local development
-  }
-
-  // Fallback to process.env
-  if (!accountId) {
-    accountId = process.env.R2_ACCOUNT_ID;
-    accessKeyId = process.env.R2_ACCESS_KEY_ID;
-    secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  }
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
     return null;
@@ -155,35 +139,70 @@ async function signRequest(
   return headers;
 }
 
+// Save metadata to KV or in-memory fallback
+async function saveMetadata(id: string, data: ShareData, kv?: KVNamespace) {
+  if (kv) {
+    const ttlSeconds = Math.floor((data.expiresAt - Date.now()) / 1000);
+    await kv.put(`metadata:${id}`, JSON.stringify(data), {
+      expirationTtl: ttlSeconds > 0 ? ttlSeconds : 3600, // Minimum 1 hour
+    });
+  } else {
+    metadata[id] = data;
+  }
+}
+
+// Get metadata from KV or in-memory fallback
+async function getMetadata(id: string, kv?: KVNamespace): Promise<ShareData | null> {
+  if (kv) {
+    const data = await kv.get(`metadata:${id}`);
+    return data ? JSON.parse(data) : null;
+  } else {
+    return metadata[id] || null;
+  }
+}
+
+// Delete metadata from KV or in-memory fallback
+async function deleteMetadata(id: string, kv?: KVNamespace) {
+  if (kv) {
+    await kv.delete(`metadata:${id}`);
+  } else {
+    delete metadata[id];
+  }
+}
+
 // Clean expired files
-export async function cleanExpiredFiles() {
+export async function cleanExpiredFiles(kv?: KVNamespace) {
   const config = getR2Config();
   if (!config) return;
 
   const now = Date.now();
   const expiredIds: string[] = [];
 
-  for (const [id, data] of Object.entries(metadata)) {
-    if (data.expiresAt < now) {
-      try {
-        const url = `${config.endpoint}/${BUCKET_NAME}/${data.filename}`;
-        const headers = await signRequest('DELETE', url, {}, null, config);
+  // Note: For KV, expired keys are automatically deleted
+  // This function is mainly for in-memory fallback
+  if (!kv) {
+    for (const [id, data] of Object.entries(metadata)) {
+      if (data.expiresAt < now) {
+        try {
+          const url = `${config.endpoint}/${BUCKET_NAME}/${data.filename}`;
+          const headers = await signRequest('DELETE', url, {}, null, config);
 
-        const response = await fetch(url, {
-          method: 'DELETE',
-          headers,
-        });
+          const response = await fetch(url, {
+            method: 'DELETE',
+            headers,
+          });
 
-        if (response.ok) {
-          expiredIds.push(id);
+          if (response.ok) {
+            expiredIds.push(id);
+          }
+        } catch (error) {
+          console.error(`Error deleting file ${id}:`, error);
         }
-      } catch (error) {
-        console.error(`Error deleting file ${id}:`, error);
       }
     }
-  }
 
-  expiredIds.forEach((id) => delete metadata[id]);
+    expiredIds.forEach((id) => delete metadata[id]);
+  }
 }
 
 // Save uploaded file to R2
@@ -192,7 +211,8 @@ export async function saveFileToR2(
   originalName: string,
   mimeType: string,
   size: number,
-  expiresInHours: number
+  expiresInHours: number,
+  kv?: KVNamespace
 ): Promise<ShareData> {
   const config = getR2Config();
 
@@ -200,7 +220,7 @@ export async function saveFileToR2(
     throw new Error("R2 not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables.");
   }
 
-  await cleanExpiredFiles();
+  await cleanExpiredFiles(kv);
 
   const id = generateId(10);
   const ext = originalName.substring(originalName.lastIndexOf("."));
@@ -228,7 +248,8 @@ export async function saveFileToR2(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to upload to R2: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`Failed to upload to R2: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   const shareData: ShareData = {
@@ -241,22 +262,23 @@ export async function saveFileToR2(
     createdAt: Date.now(),
   };
 
-  metadata[id] = shareData;
+  await saveMetadata(id, shareData, kv);
 
   return shareData;
 }
 
 // Get file from R2
-export async function getFileFromR2(id: string): Promise<{ data: ShareData; buffer: ArrayBuffer } | null> {
-  await cleanExpiredFiles();
+export async function getFileFromR2(id: string, kv?: KVNamespace): Promise<{ data: ShareData; buffer: ArrayBuffer } | null> {
+  await cleanExpiredFiles(kv);
 
-  const shareData = metadata[id];
+  const shareData = await getMetadata(id, kv);
 
   if (!shareData) {
     return null;
   }
 
   if (shareData.expiresAt < Date.now()) {
+    await deleteMetadata(id, kv);
     return null;
   }
 
