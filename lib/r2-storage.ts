@@ -101,7 +101,7 @@ async function signRequest(
   const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${canonicalRequestHash}`;
 
   // Calculate signature
-  async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
+  async function hmac(key: BufferSource, data: string): Promise<ArrayBuffer> {
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       key,
