@@ -80,7 +80,9 @@ export default function Home() {
     }, 500);
 
     try {
-      const response = await fetch("/api/upload", {
+      // Call Worker directly to avoid async_hooks issue with @cloudflare/next-on-pages
+      const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || "https://flash-share-upload-worker.pierre-baconnier.workers.dev";
+      const response = await fetch(`${WORKER_URL}/upload`, {
         method: "POST",
         body: formData,
         signal: abortController.signal,
