@@ -1,8 +1,8 @@
 "use client";
 
-import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { useSearchParams } from "next/navigation";
 
 // Call Worker directly to avoid async_hooks issue with @cloudflare/next-on-pages
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || "https://flash-share-upload-worker.pierre-baconnier.workers.dev";
@@ -14,14 +14,20 @@ interface FileInfo {
   expiresAt: number;
 }
 
-export default function SharePage() {
-  const params = useParams();
-  const id = params.id as string;
+export default function ShareClient() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id') || '';
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!id) {
+      setError("ID de fichier manquant");
+      setLoading(false);
+      return;
+    }
+
     const fetchFileInfo = async () => {
       try {
         const response = await fetch(`${WORKER_URL}/file/${id}`, { method: "HEAD" });
