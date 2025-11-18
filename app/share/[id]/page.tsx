@@ -4,7 +4,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
-export const runtime = 'edge';
+// Call Worker directly to avoid async_hooks issue with @cloudflare/next-on-pages
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || "https://flash-share-upload-worker.pierre-baconnier.workers.dev";
 
 interface FileInfo {
   originalName: string;
@@ -23,7 +24,7 @@ export default function SharePage() {
   useEffect(() => {
     const fetchFileInfo = async () => {
       try {
-        const response = await fetch(`/api/file/${id}`, { method: "HEAD" });
+        const response = await fetch(`${WORKER_URL}/file/${id}`, { method: "HEAD" });
 
         if (!response.ok) {
           setError("Ce fichier n'existe pas ou a expiré");
@@ -54,7 +55,7 @@ export default function SharePage() {
 
   const downloadFile = () => {
     const link = document.createElement("a");
-    link.href = `/api/file/${id}`;
+    link.href = `${WORKER_URL}/file/${id}`;
     link.download = fileInfo?.originalName || "download";
     document.body.appendChild(link);
     link.click();
@@ -64,7 +65,7 @@ export default function SharePage() {
   const renderMedia = () => {
     if (!fileInfo) return null;
 
-    const fileUrl = `/api/file/${id}`;
+    const fileUrl = `${WORKER_URL}/file/${id}`;
 
     if (fileInfo.mimeType.startsWith("image/")) {
       return (
